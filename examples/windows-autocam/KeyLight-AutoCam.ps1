@@ -1,35 +1,37 @@
+<#
+  KeyLight-AutoCam.ps1 — Windows PowerShell 5.1
+  Auto-toggle Elgato Key Light(s) when webcam/microphone are in use.
+
+  Uses the device’s local HTTP API (port 9123, base /elgato) documented here:
+  https://github.com/adamesch/elgato-key-light-api
+  License: MIT (same as upstream)
+#>
+
 # --- SETTINGS ---
 $LightIPs          = @("192.168.1.61")  # <--- your light(s) IPs
 $Brightness        = 40                 # 3..100
 $Kelvin            = 4000               # ~2900..7000
 $PollSeconds       = 2
-$UseMicAsFallback        = $false             # $true => audio-only calls also turn light on
-$ActivationWindowSeconds = 9000               # only treat as "newly active" if Start is within last N seconds
-$DebugPrint              = $true              # set $false once you're happy
-$ExcludeExeNames         = @()                # e.g. @("zoom") to ignore Zoom entirely if needed
+$UseMicAsFallback        = $false       # $true => audio-only calls also turn light on
+$ActivationWindowSeconds = 9000         # treat Start as "newly active" within last N seconds
+$DebugPrint              = $true        # set $false once you're happy
+$ExcludeExeNames         = @()          # e.g. @("zoom") to ignore Zoom entirely if needed
 
 # --- INIT ---
 $Mired = [int](1000000 / $Kelvin)
-# keep track of processes we've positively identified as using the camera
 $ActiveNonPackaged = New-Object 'System.Collections.Generic.HashSet[string]'
 
 function Set-KeyLights([bool]$On) {
-  # Map $true/$false to 1/0 (PowerShell [int]$true == -1, which breaks the light API)
   $onValue = if ($On) { 1 } else { 0 }
-
   $payload = @{
     numberOfLights = 1
-    lights = @(@{
-      on          = $onValue
-      brightness  = $Brightness
-      temperature = $Mired
-    })
+    lights = @(@{ on=$onValue; brightness=$Brightness; temperature=$Mired })
   } | ConvertTo-Json -Depth 4
 
   foreach ($ip in $LightIPs) {
     $url = "http://{0}:9123/elgato/lights" -f $ip
     try {
-      Invoke-RestMethod -Method Put -Uri $url -ContentType "application/json" -Body $payload -TimeoutSec 2 | Out-Null
+      Invoke-RestMethod -Method Put -Uri $url -ContentType "application/json" -Body $payload | Out-Null
       if ($DebugPrint) { Write-Host "Sent to $ip → on=$onValue, b=$Brightness, t=$Mired" }
     } catch {
       if ($DebugPrint) { Write-Host "Failed to reach $ip : $_" }
@@ -65,13 +67,8 @@ function Test-CapabilityInUse([string]$capability){
       $exeName = ([IO.Path]::GetFileNameWithoutExtension($exePath)).ToLowerInvariant()
       $procRunning = Process-Exists $exePath
 
-      # ensure we don't hold on to dead processes
       if(-not $procRunning){ [void]$ActiveNonPackaged.Remove($exeName) }
 
-      # treat as active if:
-      # - process is actually running AND
-      # - (Start > Stop) OR (Stop missing) AND
-      # - either we've already locked onto this process OR Start is very recent (debounce)
       $isCandidate = $procRunning -and $start -and ( ($stop -eq $null) -or ($start -gt $stop) )
       if($isCandidate){
         if($ActiveNonPackaged.Contains($exeName) -or ($now - $start).TotalSeconds -le $ActivationWindowSeconds){
@@ -82,8 +79,7 @@ function Test-CapabilityInUse([string]$capability){
     }
   }
 
-  # ---- Packaged apps (UWP) – e.g., Windows Camera app ----
-  # We can't reliably map to a running EXE, so only count brand-new activations (within the window).
+  # ---- Packaged apps (UWP) – conservative new-activation check ----
   $basePKG = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\$capability"
   if(Test-Path $basePKG){
     foreach($k in (Get-ChildItem -Path $basePKG -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*\NonPackaged\*" })){
