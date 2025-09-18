@@ -4,7 +4,8 @@
 
   Uses the device’s local HTTP API (port 9123, base /elgato) documented here:
   https://github.com/adamesch/elgato-key-light-api
-  License: MIT (same as upstream)
+  SPDX-License-Identifier: MIT
+  Copyright (c) 2025 Callum Stegmann
 #>
 
 # --- SETTINGS ---
