@@ -1,7 +1,7 @@
 # Elgato Key Light API
 
 ## Introduction
-The Elgato [Key Light](https://www.elgato.com/en/gaming/key-light) and [Key Light Air](https://www.elgato.com/en/gaming/key-light-air) are edge-lit LED video lights that are popular with live streamers on platforms like Twitch. These lights are IoT devices and are normally controlled with Elgato's 'Control Center' app or through one of the Stream Deck devices (also manufactered by Elgato). The Key Light devices do not natively support third-party integration, but they can be controlled by directly interfacing with the lights' built-in API.
+The Elgato [Key Light](https://www.elgato.com/en/gaming/key-light) and [Key Light Air](https://www.elgato.com/en/gaming/key-light-air) are edge-lit LED video lights that are popular with live streamers on platforms like Twitch. These lights are IoT devices and are normally controlled with Elgato's 'Control Center' app or through one of the Stream Deck devices (also manufactured by Elgato). The Key Light devices do not natively support third-party integration, but they can be controlled by directly interfacing with the lights' built-in API.
 
 ## API Discovery
 The 'Control Center' app sends commands to Key Light devices it has been associated to over HTTP. The API requests defined in this document were found using Wireshark and reference version 1.1.2 of the Elgato 'Control Center' app (Windows 10).

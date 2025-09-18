@@ -10,7 +10,7 @@
 
 # --- SETTINGS ---
 $LightIPs          = @("192.168.1.61")  # <--- your light(s) IPs
-$Brightness        = 40                 # 3..100
+$Brightness        = 40                 # 0..100 (values below ~3 may have no visible effect)
 $Kelvin            = 4000               # ~2900..7000
 $PollSeconds       = 2
 $UseMicAsFallback        = $false       # $true => audio-only calls also turn light on
@@ -18,8 +18,14 @@ $ActivationWindowSeconds = 9000         # treat Start as "newly active" within l
 $DebugPrint              = $true        # set $false once you're happy
 $ExcludeExeNames         = @()          # e.g. @("zoom") to ignore Zoom entirely if needed
 
+function ConvertTo-Mired([double]$Kelvin){
+  if($Kelvin -le 0){ throw "Kelvin must be greater than zero." }
+  $raw = [Math]::Round(1000000 / $Kelvin)
+  return [int]([Math]::Min([Math]::Max($raw, 143), 344))
+}
+
 # --- INIT ---
-$Mired = [int](1000000 / $Kelvin)
+$Mired = ConvertTo-Mired -Kelvin $Kelvin
 $ActiveNonPackaged = New-Object 'System.Collections.Generic.HashSet[string]'
 
 function Set-KeyLights([bool]$On) {
@@ -105,13 +111,19 @@ function CameraOrMicInUse {
 }
 
 # --- MAIN LOOP ---
-$last = $false
-while($true){
-  $active = CameraOrMicInUse
-  if($active -ne $last){
-    if($DebugPrint){ Write-Host ("State changed: {0} @ {1}" -f $active,(Get-Date)) }
-    Set-KeyLights $active
-    $last = $active
+function Start-KeyLightAutoCam {
+  $last = $false
+  while($true){
+    $active = CameraOrMicInUse
+    if($active -ne $last){
+      if($DebugPrint){ Write-Host ("State changed: {0} @ {1}" -f $active,(Get-Date)) }
+      Set-KeyLights $active
+      $last = $active
+    }
+    Start-Sleep -Seconds $PollSeconds
   }
-  Start-Sleep -Seconds $PollSeconds
+}
+
+if($MyInvocation.InvocationName -ne '.'){
+  Start-KeyLightAutoCam
 }
